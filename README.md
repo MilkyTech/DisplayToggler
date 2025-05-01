@@ -21,3 +21,21 @@ Alternatively, specify the full path in the script like this:
 
 ```ahk
 multiMonitorTool := "C:\\Path\\To\\MultiMonitorTool.exe"
+```
+
+## Installation
+1. Install AutoHotkey v2 if you haven't already (optionally Ahk2Exe compiler)
+2. Place the script `.ahk` file, the following `.ico` files in the same folder:
+   - `monitor1.ico`
+   - `extended.ico`
+3. Make sure MultiMonitorTool is accessible (see above).
+4. Use the system tray right-click menu or press **Ctrl + Alt + D** to toggle adapters.
+
+## Notes
+- The script creates a 2KB file [`monitors.csv`] to read monitor status which is overwritten with each toggle (no bloat).
+- This script expects that Monitor 1 is your primary monitor and Monitor 2 is your extended monitor.
+
+## Support
+- If you encounter any issues or have suggestions for improvements, please open an issue. We appreciate your feedback and are always looking to improve the tool.
+
+Enjoy and customize to your liking!

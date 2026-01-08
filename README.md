@@ -1,4 +1,4 @@
-# DisplayToggler (AutoHotkey v2)
+# DisplayToggler v2.0.0 (AutoHotkey v2)
 
 A lightweight tray utility for **quickly switching Windows display modes** without breaking refresh rates, resolutions, or sanity.
 

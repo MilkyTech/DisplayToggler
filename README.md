@@ -55,10 +55,10 @@ Result: **no more refresh-rate surprises**.
 
 Internally, this tool calls:
 
-DisplaySwitch.exe /internal
-DisplaySwitch.exe /external
-DisplaySwitch.exe /clone
-DisplaySwitch.exe /extend
+- DisplaySwitch.exe /internal
+- DisplaySwitch.exe /external
+- DisplaySwitch.exe /clone
+- DisplaySwitch.exe /extend
 
 
 These are official Windows display modes and are safe to use.

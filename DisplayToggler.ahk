@@ -1,111 +1,85 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 
-A_IconTip := "DisplayToggler"
-A_TrayMenu.Delete()
-A_TrayMenu.Add("Toggle Displays", (*) => toggleDisplays())
-A_TrayMenu.Add()
-A_TrayMenu.Add("Exit", (*) => ExitApp())
+; ---- CONFIG ----
+icon_internal  := "monitor1.ico"
+icon_external  := "monitor2.ico"
+icon_clone     := "duplicate.ico"
+icon_extend    := "extended.ico"
 
-; Add the full path here if you didn't add it to PATH and this file resides in a different folder from this script
-multiMonitorTool := "MultiMonitorTool.exe"
+; ---- DETECT INITIAL STATE ----
+initialMode := detectInitialDisplayMode()
+runDisplaySwitch(initialMode)
+toggleState := (initialMode = "/extend")
 
-; Splits a CSV line, respecting quoted fields
-parseCSVLine(line) {
-    fields := []
-    i := 1, len := StrLen(line)
-    insideQuotes := false, field := ""
-    
-    while i <= len {
-        char := SubStr(line, i, 1)
-        nextChar := (i < len) ? SubStr(line, i+1, 1) : ""
+; ---- TRAY SETUP ----
 
-        if (char = Chr(34)) {
-            if (insideQuotes && nextChar = Chr(34)) {
-                field .= Chr(34)
-                i += 1
-            } else {
-                insideQuotes := !insideQuotes
-            }
-        } else if (char = "," && !insideQuotes) {
-            fields.Push(field)
-            field := ""
-        } else {
-            field .= char
-        }
-        i += 1
-    }
-    fields.Push(field)
-    return fields
-}
+OnMessage(0x404, TrayClickHandler)
 
-getDisplay2Status() {
-    RunWait multiMonitorTool " /scomma monitors.csv", , "Hide"
-
-    if !FileExist("monitors.csv")
-        return "Error: CSV not found"
-
-    csvContent := FileRead("monitors.csv")
-    lines := StrSplit(csvContent, "`n", "`r")
-    if lines.Length < 2
-        return "Error: CSV content incomplete"
-
-    headers := parseCSVLine(lines[1])
-    activeIndex := 0
-    for i, field in headers {
-        if (Trim(field) = "Active") {
-            activeIndex := i
-            break
-        }
-    }
-    if (!activeIndex)
-        return "Error: 'Active' column not found"
-
-    for i, line in lines {
-        if (i = 1 || line = "")
-            continue
-        if InStr(line, "\\.\DISPLAY2") {
-            fields := parseCSVLine(line)
-            return Trim(fields[activeIndex]) ; "Yes" or "No"
-        }
-    }
-    return "Error: DISPLAY2 not found"
-}
-
-initialTrayIcon() {
-    status := getDisplay2Status()
-    if InStr(status, "Error") {
-        MsgBox status
-        return
-    }
-
-    if (status = "Yes") {
-        TraySetIcon("extended.ico", , true)
-        A_IconTip := "Monitors Extended"
-    } else {
-        TraySetIcon("monitor1.ico", , true)
-        A_IconTip := "Monitor 1 Active"
+TrayClickHandler(wParam, lParam, *) {
+    ; 0x202 = WM_LBUTTONUP (left button released)
+    if (lParam = 0x202) {
+        toggleDisplays()
     }
 }
 
-initialTrayIcon()
+TrayMenu := A_TrayMenu
+TrayMenu.Delete()
+TrayMenu.Add("Show Only on Primary", (*) => runDisplaySwitch("/internal"))
+TrayMenu.Add("Show Only on Secondary", (*) => runDisplaySwitch("/external"))
+TrayMenu.Add("Duplicate Displays",      (*) => runDisplaySwitch("/clone"))
+TrayMenu.Add("Extend Displays",         (*) => runDisplaySwitch("/extend"))
+TrayMenu.Add()
+TrayMenu.Add("Exit", (*) => ExitApp())
 
+; ---- TOGGLE FUNCTIONALITY ----
 toggleDisplays() {
-    status := getDisplay2Status()
-    if InStr(status, "Error") {
-        MsgBox status
-        return
-    }
+    global toggleState
+    toggleState := !toggleState
+    runDisplaySwitch(toggleState ? "/extend" : "/internal")
+}
 
-    if (status = "Yes") {
-        RunWait multiMonitorTool " /disable 2", , "Hide"
-        TraySetIcon("monitor1.ico", , true)
-        A_IconTip := "Monitor 1 Active"
-    } else {
-        RunWait multiMonitorTool " /enable 2", , "Hide"
-        TraySetIcon("extended.ico", , true)
-        A_IconTip := "Monitors Extended"
+runDisplaySwitch(mode) {
+    displaySwitch := A_WinDir "\System32\DisplaySwitch.exe"
+	
+	RunWait A_ComSpec ' /c "' displaySwitch '" ' mode, , "Hide"
+
+    switch mode {
+        case "/internal":
+            TraySetIcon(icon_internal)
+            A_IconTip := "DisplayToggler - Primary Only"
+        case "/external":
+            TraySetIcon(icon_external)
+            A_IconTip := "DisplayToggler - Secondary Only"
+        case "/clone":
+            TraySetIcon(icon_clone)
+            A_IconTip := "DisplayToggler - Duplicate Displays"
+        case "/extend":
+            TraySetIcon(icon_extend)
+            A_IconTip := "DisplayToggler - Extended Display"
     }
+}
+
+; ---- DISPLAY DETECTION (PowerShell + SysGet) ----
+detectInitialDisplayMode() {
+    psCmd := 'Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorConnectionParams | Where-Object { $_.Active } | Measure-Object | Select -ExpandProperty Count'
+    activeCount := Trim(execPS(psCmd))
+		
+	virtualWidth := SysGet(78)  ; SM_CXVIRTUALSCREEN
+	screenWidth := SysGet(0)    ; SM_CXSCREEN
+
+    if (activeCount = "1")
+        return "/internal"
+    else if (virtualWidth > screenWidth)
+        return "/extend"
+    else
+        return "/clone"
+}
+
+execPS(command) {
+    shell := ComObject("WScript.Shell")
+    exec := shell.Exec("powershell -NoProfile -Command " . command)
+    return exec.StdOut.ReadAll()
 }
 
 
